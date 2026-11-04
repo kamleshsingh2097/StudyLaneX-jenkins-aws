@@ -1,15 +1,20 @@
-FROM node:22-alpine
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
 RUN npm run build
+ 
+FROM nginx:1.27-alpine
 
-EXPOSE 4173
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+ 
