@@ -79,30 +79,20 @@ pipeline {
             }
 
         }
- 
         stage('Deploy over VPC Peering') {
-
             steps {
-
                 sshagent(credentials: ['app-ssh']) {
-
                     sh '''
-
                         OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
-
                         scp $OPTS deploy/deploy.sh $APP_USER@$APP_HOST:/tmp/deploy.sh
-
-                        ssh $OPTS $APP_USER@$APP_HOST \
-
-                          "sudo AWS_REGION=$AWS_REGION bash /tmp/deploy.sh $FRONTEND_IMAGE $BACKEND_IMAGE"
-
+                        ssh $OPTS $APP_USER@$APP_HOST "sudo AWS_REGION=$AWS_REGION bash /tmp/deploy.sh $FRONTEND_IMAGE $BACKEND_IMAGE"
                     '''
-
                 }
-
             }
-
         }
+ 
+        
+                
 
     }
  
