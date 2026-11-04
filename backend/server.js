@@ -6,7 +6,7 @@ const mongoose = require("mongoose"); // mongoose connect node.js to mongodb and
 const feedbackRoutes = require("./routes/feedbackRoutes");
 const app = express();
 const contactRoutes = require("./routes/contactRoutes");
-const localOrigin = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}):30173$/;
+const localOrigin = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}):(30173|5173)$/;
 
 app.use(cors((req, callback) => {
   const origin = req.header("Origin");
