@@ -3,3 +3,5 @@ dist
 .git
 backend
 .env
+deploy
+k8s
