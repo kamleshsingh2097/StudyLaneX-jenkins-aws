@@ -2,7 +2,7 @@
 
 StudyLaneX is a full-stack MERN web application that gives students a modern learning platform where they can explore course categories, read learning experiences and testimonials, share feedback and get in touch through a contact form.
 
-This repository is a copy of the original project with **Docker**, **Jenkins** and **Kubernetes** added. A push to GitHub makes Jenkins build two Docker images, push them to Docker Hub and roll them out to a Kubernetes cluster.
+This repository is a copy of the original project deployed on **AWS** with **Docker**, **Jenkins** and **VPC peering**. A push to GitHub makes Jenkins build two Docker images, push them to **Amazon ECR** and deploy them to an **EC2** server behind an **Application Load Balancer**.
 
 > **Original project:** https://github.com/shruti-Verma64894/StudyLaneX
 > This project was taken from the repository above. All credit for the application itself goes to its original author.
@@ -17,9 +17,11 @@ This repository is a copy of the original project with **Docker**, **Jenkins** a
 - Feedback form with feedback stored in MongoDB
 - Contact form with backend API integration and email sending using Nodemailer
 - MongoDB Atlas database connectivity
-- Dockerized frontend and backend, with images pushed to Docker Hub
-- Jenkins pipeline that builds, pushes and deploys on every new commit
-- Kubernetes deployment with 2 replicas per service, readiness probes and resource limits
+- Dockerized frontend (nginx) and backend (Node.js), with images stored in Amazon ECR
+- Jenkins pipeline that builds, pushes and deploys automatically on every new commit
+- Deployment to EC2 behind an Application Load Balancer, with path-based routing for the API
+- Secrets kept in AWS Systems Manager Parameter Store, and no AWS access keys stored anywhere (IAM roles are used)
+- Health check after every deploy, with automatic rollback to the previous version if it fails
 
 ---
 
@@ -27,36 +29,76 @@ This repository is a copy of the original project with **Docker**, **Jenkins** a
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 19, Vite, React Router, HTML5, CSS3, JavaScript |
-| Backend | Node.js, Express 5, Mongoose, CORS, dotenv |
+| Frontend | React 19, Vite 7, React Router 7, HTML5, CSS3, JavaScript |
+| Frontend server | nginx 1.27 (static files, gzip, SPA fallback) |
+| Backend | Node.js 20, Express 5, Mongoose 7, CORS, dotenv |
 | Database | MongoDB Atlas |
 | Email | Nodemailer (Gmail SMTP) |
-| Containers | Docker, Docker Hub |
+| Containers | Docker, Amazon ECR |
 | CI/CD | Jenkins (Pipeline from SCM) |
-| Orchestration | Kubernetes (Deployments + NodePort Services) |
+| Hosting | Amazon EC2 (Amazon Linux 2023), Application Load Balancer |
+| Networking | Two VPCs connected by VPC peering |
+| Secrets and access | SSM Parameter Store (SecureString), IAM roles |
+
+---
+
+## 🏗 Architecture
+
+```
+ Developer
+    │ git push
+    ▼
+ GitHub ◄──────────────── polls every minute ────────────┐
+                                                          │
+ ┌───────────── sl-ci-vpc  (10.10.0.0/16) ─────────────┐  │
+ │  EC2 "sl-jenkins"  (t3.small, Elastic IP)           │──┘
+ │   1. Prepare       (find account ID, image names)   │
+ │   2. Build Images  (frontend + backend)             │──► Amazon ECR
+ │   3. Push to ECR   (tag = build number)             │    (2 private repos)
+ │   4. Deploy        (scp + ssh deploy.sh)            │
+ └───────────────────────┬─────────────────────────────┘
+                         │  VPC peering  (private IPs, SSH on port 22)
+                         ▼
+ ┌───────────── sl-app-vpc (10.20.0.0/16) ─────────────┐
+ │                                                     │
+ │  Users ─► Application Load Balancer "sl-alb"        │
+ │              /api/*  ─► sl-backend-tg  ─► :5000     │
+ │              /*      ─► sl-frontend-tg ─► :80       │
+ │                              │                      │
+ │  EC2 "sl-app" 10.20.1.10 (t3.micro, Elastic IP)     │
+ │    ├─ container sl-frontend  (nginx, port 80)       │
+ │    └─ container sl-backend   (Node, port 5000)      │
+ └──────────────┬──────────────────────┬───────────────┘
+                │ reads secrets        │ database connection
+                ▼                      ▼
+      SSM Parameter Store        MongoDB Atlas
+        /studylanex/*          (allows the app Elastic IP)
+```
+
+**Naming:** `sl` stands for **StudyLaneX** and `ci` stands for **Continuous Integration**. So `sl-ci-vpc` is the network that holds the Jenkins (CI) server, and `sl-app-vpc` is the network that holds the running application. They are kept separate so that the build system and the public-facing app are isolated from each other, and they only talk through the peering connection.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-StudyLaneX-main/
-├── Dockerfile              # Frontend image (Vite build + preview server)
+StudyLaneX-jenkins-aws-main/
+├── Dockerfile              # Frontend image: Vite build, then nginx serves /dist
+├── nginx.conf              # nginx config (gzip, asset caching, SPA fallback)
 ├── .dockerignore           # Frontend build context exclusions
-├── Jenkinsfile             # Pipeline: build → push → deploy
+├── Jenkinsfile             # Pipeline: prepare → build → push to ECR → deploy
 ├── package.json            # Frontend dependencies and scripts
-├── vite.config.js
+├── vite.config.js          # Vite config with a dev proxy for /api
 ├── index.html
+├── deploy/
+│   └── deploy.sh           # Runs on the app server: pull, start, health check, rollback
 ├── src/                    # React source code
 │   ├── App.jsx
 │   ├── Components/
 │   └── services/           # API helper (feedbackService.js)
 ├── public/                 # Course pages and images
-├── k8s/
-│   ├── backend.yaml        # Backend Deployment + NodePort Service
-│   └── frontend.yaml       # Frontend Deployment + NodePort Service
 └── backend/
-    ├── Dockerfile          # Backend image (plain Node.js)
+    ├── Dockerfile          # Backend image (Node.js 20, non-root user)
     ├── .dockerignore
     ├── package.json        # "start": "node server.js"
     ├── server.js           # Express app, CORS, MongoDB connection
@@ -66,161 +108,291 @@ StudyLaneX-main/
 
 ---
 
-## 🌐 Accessing the App (Ports)
+## 🌐 How Requests Flow
 
-| What | Port | Address |
+Users open **one address only**: the DNS name of the load balancer, `http://<ALB-DNS-name>`.
+
+| Request path | Goes to | Container port |
 |---|---|---|
-| **Frontend** (the website) | **30173** | `http://<node-ip>:30173` |
-| **Backend** (the API) | **30500** | `http://<node-ip>:30500` |
+| `/api/*` | `sl-backend-tg` (Express API) | 5000 |
+| everything else | `sl-frontend-tg` (nginx + React) | 80 |
 
-- `<node-ip>` is the IP address of a node in your Kubernetes cluster (for example the machine's LAN IP, or the output of `minikube ip` if you use Minikube).
-- **Only open the frontend (30173) in the browser.** The React code calls the backend on port 30500 by itself, using the same hostname as the page.
-- Open the backend (30500) directly only to check it is running.
-- Inside the cluster the containers listen on 4173 (frontend) and 5000 (backend). Those numbers are not used in the browser.
-- The two ports above are fixed in `k8s/*.yaml` (`nodePort`). The backend CORS rule in `backend/server.js` only accepts pages opened from port **30173**.
+- The React code calls the API with **relative URLs** (`/api/feedback`, `/api/contact/send`), so the browser always talks to the same address the page was loaded from. There are no hard-coded hostnames or ports.
+- Because the page and the API share one origin, the backend CORS rule accepts same-origin requests (the `Origin` host equals the `Host` header). It also still accepts `localhost`, `127.0.0.1` and `192.168.x.x` on ports `30173` and `5173` for local development.
+- `nginx.conf` returns `index.html` for unknown paths, so React Router pages survive a browser refresh.
+
+---
+
+## 💻 Local Development
+
+Requirements: Node.js 20 or newer, and a MongoDB connection string.
+
+```bash
+# 1. Backend  (http://localhost:5000)
+cd backend
+npm install
+# create backend/.env with:
+#   MONGO_URI=mongodb+srv://<user>:<password>@<cluster-host>/studylanex
+#   EMAIL_USER=<your gmail address>        (optional, for the contact form)
+#   EMAIL_PASS=<your gmail app password>   (optional, for the contact form)
+npm start
+
+# 2. Frontend  (http://localhost:5173), in a second terminal from the repo root
+npm install
+npm run dev
+```
+
+`vite.config.js` proxies `/api` to `http://localhost:5000`, so the relative API URLs work during development.
+
+You can also test the Docker builds locally:
+
+```bash
+docker build -t fe-test .
+docker build -t be-test ./backend
+```
 
 ---
 
 ## 🐳 Docker Images
 
-```bash
-# Frontend
-docker build -t <dockerhub-user>/studylanex-frontend:<tag> .
-
-# Backend
-docker build -t <dockerhub-user>/studylanex-backend:<tag> ./backend
-```
-
-Jenkins uses the Docker Hub user `kamleshsingh2097` and the Jenkins build number as the tag, so every build produces a new, unique image version.
-
-The `.dockerignore` files keep `node_modules`, `dist`, `.git` and `.env` out of the images (the root one also skips `backend/`, because the frontend image does not need it).
-
----
-
-## ☸️ Kubernetes Resources
-
-Each file in `k8s/` contains a **Deployment** and a **Service**.
-
-| | Backend (`k8s/backend.yaml`) | Frontend (`k8s/frontend.yaml`) |
+| Image | Base | What it does |
 |---|---|---|
-| Namespace | `studylanex` | `studylanex` |
-| Deployment name | `studylanex-backend` | `studylanex-frontend` |
-| Replicas | 2 | 2 |
-| Container port | 5000 | 4173 |
-| Service type / port | NodePort `5000` → `30500` | NodePort `4173` → `30173` |
-| Readiness probe | `GET /` on 5000 | `GET /` on 4173 |
-| Resources | request 100m CPU, 128Mi; limit 256Mi | request 100m CPU, 128Mi; limit 384Mi |
-| Secret used | `mongo-uri` (key `MONGO_URI`) | none |
+| `studylanex-frontend` | `node:22-alpine` (build), `nginx:1.27-alpine` (runtime) | Builds the React app, then serves the static files with nginx on port 80 |
+| `studylanex-backend` | `node:20-alpine` | Runs `node server.js` on port 5000 as the non-root `node` user |
 
-- The `image:` field in each file holds a placeholder (`__BACKEND_IMAGE__`, `__FRONTEND_IMAGE__`). Jenkins replaces it with the real image and tag at deploy time.
-- The readiness probe keeps traffic away from a pod until it answers. The backend only starts listening after MongoDB connects, so a wrong `MONGO_URI` leaves its pods not ready.
-- Deployments update with the default **rolling update**, so the old pods are replaced step by step while the new ones become ready.
+- Both images are stored in private **ECR** repositories, `studylanex-frontend` and `studylanex-backend`.
+- Jenkins tags each image with the **build number**, so every build produces a unique, traceable version.
+- The frontend uses a multi-stage build, so the final image holds only nginx and the built files (small, and low on memory).
+- The `.dockerignore` files keep `node_modules`, `dist`, `.git` and `.env` out of the images. The root one also skips `backend`, `deploy`, `k8s` and the `Jenkinsfile`.
 
 ---
 
 ## 🔁 CI/CD with Jenkins
 
 ```
-git push ──► GitHub ◄── Jenkins (job reads the Jenkinsfile)
+git push ──► GitHub ◄── Jenkins polls every minute
                               │ new commit
                               ▼
-                      1. Build Images        (frontend + backend)
-                      2. Push to Docker Hub  (tag = build number)
-                      3. Deploy to Kubernetes
-                              │ kubectl apply + rollout status
+                      1. Prepare           (AWS account ID → ECR image names)
+                      2. Build Images      (frontend + backend)
+                      3. Push to ECR       (tag = build number)
+                      4. Deploy            (scp + ssh over VPC peering)
+                              │
                               ▼
-                  Kubernetes: namespace "studylanex"
+              deploy.sh on sl-app (10.20.1.10)
+              login → read secrets → pull → start → health check → rollback if failed
 ```
 
 **Pipeline stages (`Jenkinsfile`):**
 
-1. **Build Images:** builds `<user>/studylanex-frontend:<build-number>` and `<user>/studylanex-backend:<build-number>`.
-2. **Push to Docker Hub:** logs in with the Jenkins credential `dockerhub-creds` (password sent through stdin), then pushes both images.
-3. **Deploy to Kubernetes:** replaces the image placeholder in each manifest with `sed`, applies it with `kubectl apply -f -`, then waits with `kubectl rollout status` (180 s timeout per deployment).
-4. **Post:** always runs `docker logout`.
+1. **Prepare:** reads the AWS account ID with `aws sts get-caller-identity` and builds the ECR registry address and the two image names.
+2. **Build Images:** builds `studylanex-frontend:<build-number>` and `studylanex-backend:<build-number>`.
+3. **Push to ECR:** logs in with `aws ecr get-login-password` (using the Jenkins server's IAM role) and pushes both images.
+4. **Deploy over VPC Peering:** uses the Jenkins credential `app-ssh` to copy `deploy/deploy.sh` to the app server at `10.20.1.10` and run it with `sudo`.
+5. **Post:** always logs out of ECR and removes images older than 72 hours.
 
-### One-time setup
+**Pipeline options:** timestamps in the log, no concurrent builds, 30 minute timeout, and `pollSCM('* * * * *')` (checks GitHub every minute so changes deploy quickly; a value like `H/5 * * * *` polls every 5 minutes and creates less load).
 
-**1. Kubernetes: create the namespace and the database secret**
+**What `deploy/deploy.sh` does on the app server:**
+
+1. Logs in to ECR.
+2. Reads every parameter under `/studylanex/` from Parameter Store and writes it to `/opt/studylanex/backend.env` (readable only by root). It stops if `MONGO_URI` is missing.
+3. Remembers the currently running image versions.
+4. Pulls the new images.
+5. Starts `sl-backend` (256 MB limit, port 5000) and `sl-frontend` (64 MB limit, port 80), both with `--restart unless-stopped`.
+6. Checks `http://localhost:5000/` and `http://localhost/` for up to 90 seconds.
+7. On success, records the new versions and prunes old images. On failure, it prints the backend logs and **rolls back** to the previous versions.
+
+---
+
+## ☁️ AWS Setup (one-time)
+
+Use **one region** for everything (this project uses `ap-south-1`, Mumbai). Do the phases in order, because each one depends on the one before. The Jenkinsfile expects the app server to be at **`10.20.1.10`**.
+
+### 1. Key pair
+EC2 → Key Pairs → create `studylanex-key` (RSA, `.pem`). It is the SSH login for both servers, and Jenkins also uses it to reach the app server.
+
+### 2. Two VPCs
+Create them with **VPC only** (not "VPC and more", which adds paid NAT gateways).
+
+| | `sl-ci-vpc` (Jenkins) | `sl-app-vpc` (application) |
+|---|---|---|
+| CIDR | `10.10.0.0/16` | `10.20.0.0/16` |
+| Subnets | `sl-ci-public` `10.10.1.0/24` | `sl-app-public-1` `10.20.1.0/24` and `sl-app-public-2` `10.20.2.0/24` (two different AZs) |
+| Internet gateway | `sl-ci-igw` | `sl-app-igw` |
+| Route table | `sl-ci-rt`: `0.0.0.0/0` → `sl-ci-igw` | `sl-app-rt`: `0.0.0.0/0` → `sl-app-igw`, on both subnets |
+
+Enable **DNS hostnames** on both VPCs and **auto-assign public IPv4** on every subnet. The app VPC needs two AZs because the load balancer requires them. There is no NAT gateway (about $32/month); the app server sits in a public subnet protected by its security group.
+
+### 3. VPC peering
+Create `sl-ci-to-app` (requester `sl-ci-vpc`, acceptor `sl-app-vpc`) and **accept** it. Then add a route on **each side**:
+
+- `sl-ci-rt`: `10.20.0.0/16` → `sl-ci-to-app`
+- `sl-app-rt`: `10.10.0.0/16` → `sl-ci-to-app`
+
+A peering connection is only a pipe, so both routes are needed. Without them traffic or replies get lost.
+
+### 4. Security groups
+
+| Name | VPC | Inbound rules |
+|---|---|---|
+| `sl-jenkins-sg` | `sl-ci-vpc` | TCP 22 from My IP; TCP 8080 from My IP |
+| `sl-alb-sg` | `sl-app-vpc` | TCP 80 from `0.0.0.0/0` |
+| `sl-app-sg` | `sl-app-vpc` | TCP 80 and TCP 5000 from `sl-alb-sg`; TCP 22 from `10.10.0.0/16` |
+
+Only you can reach Jenkins, only the load balancer can reach the containers, and only the Jenkins network can SSH to the app server. Create `sl-alb-sg` before `sl-app-sg`, because the second refers to it.
+
+### 5. ECR repositories
+Create two private repositories, `studylanex-frontend` and `studylanex-backend`, with **Scan on push** enabled. Add a lifecycle rule to each: expire images when the **image count is more than 5**. This keeps storage cost low and leaves recent versions for rollback.
+
+### 6. IAM roles
+Roles give servers temporary credentials, so no access keys are stored.
+
+| Role | Attached to | Permissions |
+|---|---|---|
+| `sl-jenkins-role` | Jenkins server | Inline policy: `ecr:GetAuthorizationToken`, plus push and pull on the two repositories only |
+| `sl-app-role` | App server | `AmazonSSMManagedInstanceCore` (Session Manager), plus an inline policy: pull from the two repositories, and `ssm:GetParameter`, `GetParameters`, `GetParametersByPath` on `/studylanex` and `/studylanex/*` |
+
+Scope every ECR and SSM permission to your own account ID, region and the project's resource names (least privilege).
+
+### 7. Secrets in Parameter Store
+Create three **SecureString** parameters (Standard tier, free):
+
+| Name | Value |
+|---|---|
+| `/studylanex/MONGO_URI` | your MongoDB Atlas connection string |
+| `/studylanex/EMAIL_USER` | your Gmail address |
+| `/studylanex/EMAIL_PASS` | your Gmail **app password** |
+
+### 8. App server (`sl-app`)
+
+- Amazon Linux 2023, `t3.micro`, 12 GiB gp3, key pair `studylanex-key`.
+- VPC `sl-app-vpc`, subnet `sl-app-public-1`, security group `sl-app-sg`, auto-assign public IP, and **Primary IP `10.20.1.10`** (under Advanced network configuration).
+- IAM instance profile `sl-app-role`.
+- Attach an **Elastic IP**, then add that IP to **MongoDB Atlas → Network Access**. Atlas only accepts allowed IPs, and a normal public IP changes when the instance restarts.
+- Connect with **Session Manager** and prepare the server:
 
 ```bash
-kubectl create namespace studylanex
+sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
-kubectl create secret generic mongo-uri \
-  --namespace studylanex \
-  --from-literal=MONGO_URI='mongodb+srv://<DB_USERNAME>:<DB_PASSWORD>@<cluster-host>/studylanex'
+sudo dnf install -y docker
+sudo mkdir -p /etc/docker
+echo '{"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"3"}}' | sudo tee /etc/docker/daemon.json
+sudo systemctl enable --now docker
+sudo usermod -aG docker ec2-user
+sudo mkdir -p /opt/studylanex
 ```
 
-- Use your own MongoDB Atlas connection string, with the database name at the end (`/studylanex`) and no extra quotes inside the value.
-- The secret name (`mongo-uri`) and key (`MONGO_URI`) must match `k8s/backend.yaml`.
-- Neither the namespace nor the secret is created by the pipeline. They must exist before the first deploy.
+Swap protects a 1 GB server from running out of memory, and the log limits stop container logs from filling the disk.
 
-**2. Jenkins: add the Docker Hub credential**
+### 9. Target groups and load balancer
 
-**Manage Jenkins → Credentials → System → Global credentials → Add Credentials**
+| | Frontend | Backend |
+|---|---|---|
+| Name | `sl-frontend-tg` | `sl-backend-tg` |
+| Target type | Instances | Instances |
+| Protocol : Port | HTTP : 80 | HTTP : 5000 |
+| VPC | `sl-app-vpc` | `sl-app-vpc` |
+| Health check path | `/` | `/` |
+| Registered target | `sl-app` on port 80 | `sl-app` on port 5000 |
+
+Set **Deregistration delay** to `10` seconds on both.
+
+Create an **internet-facing Application Load Balancer** `sl-alb` in `sl-app-vpc`, using **both** public subnets and only `sl-alb-sg`. The `HTTP:80` listener forwards to `sl-frontend-tg` by default. Add a rule: **path `/api/*`** → `sl-backend-tg`, priority `10`. Both target groups stay *unhealthy* until the first deploy, which is expected.
+
+### 10. Jenkins server (`sl-jenkins`)
+
+- Amazon Linux 2023, `t3.small`, 20 GiB gp3, key pair `studylanex-key`.
+- VPC `sl-ci-vpc`, subnet `sl-ci-public`, security group `sl-jenkins-sg`, auto-assign public IP, IAM instance profile `sl-jenkins-role`, and its own Elastic IP.
+- SSH in and install the tools:
+
+```bash
+ssh -i studylanex-key.pem ec2-user@<JENKINS_ELASTIC_IP>
+
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+sudo dnf install -y docker git java-21-amazon-corretto-headless fontconfig
+sudo curl -fsSL -o /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+sudo dnf install -y jenkins
+
+sudo usermod -aG docker jenkins
+sudo systemctl enable --now docker
+sudo systemctl enable --now jenkins
+```
+
+**Checkpoint: run these three tests before continuing.**
+
+```bash
+sudo -u jenkins aws sts get-caller-identity    # prints your account → IAM role works
+sudo -u jenkins docker ps                       # no error → Docker permission works
+nc -zv 10.20.1.10 22                            # "succeeded" → peering works
+```
+
+If `docker ps` fails, run `sudo systemctl restart jenkins` and test again. If `nc` times out, recheck the two peering routes and the SSH rule on `sl-app-sg`.
+
+### 11. Configure Jenkins in the browser
+
+1. Open `http://<JENKINS_ELASTIC_IP>:8080` and unlock it with `sudo cat /var/lib/jenkins/secrets/initialAdminPassword`.
+2. Choose **Install suggested plugins**, create the admin user, then install the **SSH Agent** plugin.
+3. **Manage Jenkins → Credentials → System → Global credentials → Add Credentials**:
 
 | Field | Value |
 |---|---|
-| Kind | Username with password |
-| Username | your Docker Hub username |
-| Password | your Docker Hub password or access token |
-| ID | `dockerhub-creds` (the Jenkinsfile uses this exact ID) |
+| Kind | SSH Username with private key |
+| ID | `app-ssh` (the Jenkinsfile uses this exact ID) |
+| Username | `ec2-user` |
+| Private Key | Enter directly → paste the contents of `studylanex-key.pem` |
 
-**3. Jenkins machine requirements**
-
-- The Linux user `jenkins` can use Docker:
-  ```bash
-  sudo usermod -aG docker jenkins
-  sudo systemctl restart jenkins
-  ```
-- `kubectl` is installed and the `jenkins` user has a working kubeconfig that can reach the cluster. Check with:
-  ```bash
-  sudo -u jenkins kubectl get nodes
-  ```
-- The cluster nodes can pull the images from Docker Hub (public images, or add an image pull secret).
-
-**4. Jenkins job**
+4. **New Item** → name `studylanex` → **Pipeline**, with these settings:
 
 | Setting | Value |
 |---|---|
-| Job type | Pipeline |
 | Definition | Pipeline script from SCM |
 | SCM | Git |
-| Repository URL | `https://github.com/kamleshsingh2097/StudyLaneX-main.git` |
-| Branch specifier | the branch you push to (this snapshot is `master`) |
+| Repository URL | `https://github.com/kamleshsingh2097/StudyLaneX-jenkins-aws.git` |
+| Branch specifier | `*/main` (or `*/master`, whichever you use) |
 | Script path | `Jenkinsfile` |
-| Build trigger | Poll SCM, for example `H/2 * * * *` (webhooks need Jenkins to be reachable from the internet) |
 
-### Secrets used
-
-| Secret | Where it lives | Used for |
-|---|---|---|
-| `dockerhub-creds` | Jenkins (Username with password) | Pushing images to Docker Hub |
-| `mongo-uri` (key `MONGO_URI`) | Kubernetes Secret in namespace `studylanex` | Backend database connection |
-
-The older Docker-only version used a Jenkins credential called `mongodb-uri`. This version does not, because the database string now comes from the Kubernetes Secret.
+5. Save, then **Build Now**. For a private repository, add a GitHub personal access token as a "Username with password" credential and select it on the job.
 
 ---
 
 ## ✅ Verifying the Deployment
 
+1. **Jenkins:** open the build → Console Output. All four stages are green and the log ends with `>> Deploy OK`.
+2. **ECR:** both repositories contain an image tagged with the build number.
+3. **EC2 → Target Groups:** both show **healthy** within about a minute.
+4. Open `http://<ALB-DNS-name>`. The site loads.
+5. Open `http://<ALB-DNS-name>/api/feedback`. It returns JSON.
+6. Submit the feedback form and the contact form.
+7. Push a small visible change to GitHub. A new build starts within a minute and the change appears on the site.
+
+Useful commands on the app server (Session Manager):
+
 ```bash
-kubectl get pods -n studylanex                      # all pods should be Running and READY
-kubectl get svc  -n studylanex                      # shows NodePorts 30173 and 30500
-kubectl logs deployment/studylanex-backend -n studylanex   # expect "✅ MongoDB Connected"
-kubectl rollout status deployment/studylanex-backend -n studylanex
-curl http://<node-ip>:30500                         # backend responds
+sudo docker ps                    # sl-frontend and sl-backend should be running
+sudo docker logs sl-backend       # expect "✅ MongoDB Connected"
+curl http://localhost:5000/       # backend health check
+curl http://localhost/            # frontend
 ```
 
-Then open `http://<node-ip>:30173` in the browser.
+### Troubleshooting
 
 | Problem | Likely cause |
 |---|---|
-| `kubectl: command not found` or `connection refused` in Jenkins | `kubectl` or the kubeconfig is missing for the `jenkins` user |
-| `namespaces "studylanex" not found` | Namespace was not created |
-| Backend pods `Running` but not `READY` | Wrong or missing `mongo-uri` secret, so MongoDB never connects |
-| `ImagePullBackOff` | Image not pushed, or the repository is private without a pull secret |
-| Browser shows a CORS error | Page not opened on port 30173 (see below) |
+| Jenkins can't reach `10.20.1.10` | Missing route in either route table, or the SSH rule on `sl-app-sg` |
+| `no basic auth credentials` on push | The IAM role is not attached to the Jenkins instance |
+| Backend target unhealthy | Atlas does not allow the app server's Elastic IP, or `MONGO_URI` is wrong. Run `docker logs sl-backend` |
+| Forms fail with 500 or CORS errors | The CORS change in `backend/server.js` is not in the deployed image |
+| Page loads but data is empty | The frontend is still calling a hard-coded port instead of relative `/api/...` URLs |
+| ALB shows 502 or 503 | Target unhealthy, or `sl-app-sg` does not allow `sl-alb-sg` on ports 80 and 5000 |
+| Build killed during `npm run build` | Out of memory. Check `free -h` for swap |
+| `MONGO_URI missing in SSM` in the deploy log | The parameter is missing, misnamed, or `sl-app-role` cannot read `/studylanex/*` |
 
 ---
 
@@ -228,12 +400,12 @@ Then open `http://<node-ip>:30173` in the browser.
 
 | Variable | Used by | Required | Where it is set |
 |---|---|---|---|
-| `MONGO_URI` | Backend | Yes | Kubernetes Secret `mongo-uri` |
-| `PORT` | Backend | No (default 5000) | Not set in the manifests |
-| `EMAIL_USER` | Contact form | No | Not set in the manifests |
-| `EMAIL_PASS` | Contact form | No | Not set in the manifests |
+| `MONGO_URI` | Backend | Yes | SSM parameter `/studylanex/MONGO_URI` (local: `backend/.env`) |
+| `EMAIL_USER` | Contact form | For email sending | SSM parameter `/studylanex/EMAIL_USER` (local: `backend/.env`) |
+| `EMAIL_PASS` | Contact form | For email sending | SSM parameter `/studylanex/EMAIL_PASS` (local: `backend/.env`) |
+| `PORT` | Backend | No (default 5000) | Set to `5000` by `deploy.sh` |
 
-The manifests only pass `MONGO_URI`. Without the email variables, only the contact form's email sending fails; the rest of the app works.
+`deploy.sh` turns every parameter under `/studylanex/` into an environment variable named after the last part of the path. Never commit `.env` files or real credentials.
 
 ---
 
@@ -241,19 +413,31 @@ The manifests only pass `MONGO_URI`. Without the email variables, only the conta
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/` | Backend health check (also used by the readiness probe) |
-| GET | `/api/feedback` | List feedback |
-| POST | `/api/feedback` | Submit feedback |
-| POST | `/api/contact/send` | Send a message from the contact form |
+| GET | `/` | Backend health check (used by `deploy.sh`) |
+| GET | `/api/feedback` | List feedback, newest first |
+| POST | `/api/feedback` | Submit feedback (`name`, `role`, `rating`, `message`) |
+| POST | `/api/contact/send` | Send a message from the contact form (`name`, `email`, `message`) |
+
+---
+
+## 💰 Cost
+
+Expect roughly **$58/month** if everything runs all the time (ALB about $24, Jenkins about $16, app server about $8, public IPv4 addresses about $7). Check the AWS Pricing Calculator for current prices.
+
+- Stop the Jenkins instance when you are not building to save about $14/month.
+- Create a budget alert: Billing → Budgets, around $60 with an email alert.
+- To remove everything, delete in this order: ALB → target groups → EC2 instances → release Elastic IPs → peering connection → ECR repositories → VPCs. Unattached Elastic IPs still cost money.
 
 ---
 
 ## ⚠️ Notes and Known Limitations
 
-- **CORS is tied to port 30173.** `backend/server.js` accepts only origins matching `localhost`, `127.0.0.1` or `192.168.x.x` on port 30173. Opening the site through another hostname (a domain or a public IP) is blocked until the pattern is extended.
-- **Contact form emails.** Both forms call the backend on port `30500`. The contact form also needs `EMAIL_USER` and `EMAIL_PASS` to send email, and the manifests do not pass them yet, so submitting the contact form shows an error until they are added (for example from a Kubernetes Secret).
-- **Health route text.** `GET /` returns `StudyLaneX Backend Testing 🚀`. It is only a status message, but it differs from the older "Running" text.
-- **Local development.** The URLs and CORS rule are set for the Kubernetes ports. For plain local development (`npm run dev` on 5173 and `npm start` on 5000), use the Docker-only version of the project, or adjust those two values.
+- **HTTP only.** The load balancer listens on port 80. For HTTPS, add an ACM certificate and an HTTPS listener on the ALB.
+- **Single app server.** There is one EC2 instance and one copy of each container, so a deploy has a short gap while containers restart, and an instance failure means downtime.
+- **Public subnet for the app server.** This avoids the cost of a NAT gateway. Access is limited by `sl-app-sg`, which only accepts traffic from the load balancer and SSH from the Jenkins VPC.
+- **Jenkins access is limited to your IP.** If your IP changes, update the `sl-jenkins-sg` rules.
+- **Host key checking.** The pipeline uses `StrictHostKeyChecking=accept-new`, which trusts the app server's key the first time it connects.
+- **Gmail.** The contact form needs a Gmail **app password**, not your normal password.
 - Never commit `.env` files or real credentials.
 
 ---
@@ -264,8 +448,11 @@ The manifests only pass `MONGO_URI`. Without the email variables, only the conta
 - Course listing and filtering
 - Admin dashboard
 - Student progress tracking
-- Ingress instead of NodePort, and an environment-based API URL instead of a hard-coded port
-- Pass the email variables through a Kubernetes Secret
+- HTTPS with a custom domain (Route 53 + ACM)
+- Infrastructure as code (Terraform or CloudFormation) for the AWS setup
+- Auto Scaling or a second app instance for zero-downtime deploys
+- Automated tests and a lint stage in the Jenkins pipeline
+- A GitHub webhook instead of polling
 
 ---
 
@@ -273,7 +460,7 @@ The manifests only pass `MONGO_URI`. Without the email variables, only the conta
 
 - **Original project and author:** Shruti Verma, https://github.com/shruti-Verma64894/StudyLaneX
   B.Tech IT Student | MERN Stack Learner
-- **Docker, Jenkins and Kubernetes automation (this repository):** https://github.com/kamleshsingh2097/StudyLaneX-main
+- **Docker, Jenkins and AWS deployment (this repository):** https://github.com/kamleshsingh2097/StudyLaneX-jenkins-aws
 
 ---
 
