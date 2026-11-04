@@ -1,0 +1,128 @@
+.learning {
+  max-width: 1200px;
+ margin: 80px auto 40px;
+  padding: 70px 40px;
+  text-align: center;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  border-radius: 28px;
+   
+}
+
+/* ===== TOP LABEL ===== */
+.learning-header h3 {
+  font-size: 14px;
+  letter-spacing: 3px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 14px;
+}
+
+/* ===== MAIN HEADING ===== */
+.learning-header h2 {
+  font-size: 40px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 18px;
+}
+
+/* ===== SUBTEXT ===== */
+.learning-header p {
+  max-width: 760px;
+  margin: 0 auto 70px;
+  font-size: 17px;
+  line-height: 1.8;
+  color: #475569;
+}
+
+/* ===== GRID ===== */
+.learning-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 34px;
+}
+
+/* ===== CARD ===== */
+.learning-card {
+  background: #ffffff;
+  padding: 36px 30px;
+  border-radius: 20px;
+  border: 1px solid #eef2f7;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  text-align: left;
+  position: relative;
+   padding-left: 34px;
+}
+
+/* no hover (as requested) */
+.learning-card:hover {
+   transform: translateY(-6px);
+  box-shadow: 0 20px 45px rgba(37, 99, 235, 0.15);
+  border-color: #2563eb;
+}   
+
+/* ===== CARD TITLE ===== */
+.learning-card h4 {
+  font-size: 19px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 12px;
+}
+
+/* ===== CARD TEXT ===== */
+.learning-card p {
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: #475569;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .learning {
+    padding: 60px 24px;
+  }
+
+  .learning-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .learning-header h2 {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 600px) {
+  .learning {
+    margin: 80px auto;
+    padding: 50px 18px;
+  }
+
+  .learning-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .learning-header h2 {
+    font-size: 26px;
+  }
+
+  .learning-header p {
+    font-size: 15.5px;
+  }
+}
+.learning-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 30px;
+  width: 4px;
+  height: 45px;
+  background: #2563eb;
+  border-radius: 4px;
+  transition: height 0.3s ease;
+}
+
+.learning-card:hover::before {
+  height: 65px;
+}
+
+
+

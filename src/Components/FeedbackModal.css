@@ -1,0 +1,78 @@
+/* ===== MODAL OVERLAY ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000; /* raised so it sits above other fixed elements */
+  pointer-events: auto;
+  backdrop-filter: blur(3px);
+}
+
+/* ===== MODAL BOX ===== */
+.modal {
+  background: #ffffff;
+  padding: 32px 28px;
+  border-radius: 18px;
+  max-width: 440px;
+  width: 92%;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+  animation: modalFade 0.25s ease;
+  position: relative;
+  z-index: 5001; /* ensure modal content is above overlay children */
+} 
+
+@keyframes modalFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ===== MODAL TEXT ===== */
+.modal h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.modal-role {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 14px;
+}
+
+.modal-text {
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: #475569;
+  margin: 18px 0 22px;
+}
+
+/* ===== MODAL BUTTON ===== */
+.modal button {
+  padding: 8px 20px;
+  border-radius: 10px;
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.modal button:hover {
+  background: #1e4fd6;
+}
+@media (max-width: 480px) {
+  .modal {
+    padding: 26px 20px;
+  }
+}

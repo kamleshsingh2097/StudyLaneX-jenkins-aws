@@ -1,0 +1,165 @@
+/* Wrapper Background */
+.professional-wrapper {
+  background: url("/pro.jpg"); /* apni image ka naam use karna */
+  background-size: cover;
+  background-position: center;
+  min-height: 100vh;
+
+  padding: 60px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  position: relative;
+}
+
+/* BACK button */
+.back-btn {
+  position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 25px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+}
+
+.back-btn:hover {
+  background: rgba(255,255,255,0.35);
+}
+
+/* Content Box */
+.professional-content {
+   width: 90%;
+  max-width: 900px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  padding: 35px 40px;
+  border-radius: 12px;
+  line-height: 1.6;
+}
+
+.professional-content h1 {
+  font-size: 40px;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.professional-content h2 {
+  margin-top: 25px;
+  font-size: 26px;
+  border-left: 4px solid #ffd369;
+  padding-left: 10px;
+}
+
+.professional-content h3 {
+  margin-top: 14px;
+  font-size: 20px;
+  color: #ffe9b1;
+}
+
+.intro {
+  font-size: 17px;
+  opacity: 0.95;
+  line-height: 1.5;
+}
+
+.professional-content ul {
+  margin-top: 10px;
+  line-height: 1.6;
+  padding-left: 25px;
+}
+
+.professional-content p {
+  opacity: 0.92;
+  line-height: 1.6;
+}
+
+/* Links */
+.professional-content a {
+  color: #ffe27a;
+  font-weight: 600;
+}
+
+.professional-content a:hover {
+  text-decoration: underline;
+}
+/* ===== PROFESSIONAL COURSES COLLEGES SECTION ===== */
+
+.college-title{
+  margin-top:40px;
+  text-align:center;
+  font-size:28px;
+  letter-spacing:0.5px;
+}
+
+/* grid */
+
+.college-grid{
+  margin-top:28px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:24px;
+}
+
+/* card */
+
+.college-card{
+  background:rgba(255,255,255,0.08);
+  padding:20px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,0.15);
+  backdrop-filter:blur(6px);
+  transition:all 0.35s ease;
+  box-shadow:0 8px 25px rgba(0,0,0,0.25);
+}
+
+/* hover */
+
+.college-card:hover{
+  transform:translateY(-6px);
+  background:rgba(255,255,255,0.15);
+  box-shadow:0 14px 35px rgba(0,0,0,0.35);
+}
+
+/* heading */
+
+.college-card h3{
+  font-size:19px;
+  margin-bottom:8px;
+  color:#ffffff;
+}
+
+/* text */
+
+.college-card p{
+  font-size:14px;
+  line-height:1.5;
+  opacity:0.92;
+}
+
+/* button */
+
+.college-card a{
+  display:inline-block;
+  margin-top:12px;
+  padding:7px 16px;
+  border-radius:22px;
+  background:#2563eb;
+  color:#fff;
+  font-size:13px;
+  text-decoration:none;
+  transition:0.25s;
+}
+
+/* button hover */
+
+.college-card a:hover{
+  background:#1e4ed8;
+  transform:scale(1.05);
+}

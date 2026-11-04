@@ -1,0 +1,133 @@
+.cs-wrapper {
+  background: url("/cs.jpeg"); /* apna cs background image rakhna */
+  background-size: cover;
+
+  min-height: 100vh;
+  padding: 60px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.cs-content {
+  width: 90%;
+  max-width: 900px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  padding: 35px 40px;
+  border-radius: 12px;
+  line-height: 1.6;
+}
+
+.cs-content h1 {
+  font-size: 38px;
+  margin-bottom: 18px;
+}
+
+.cs-content h2 {
+  margin-top: 30px;
+  font-size: 26px;
+}
+
+.cs-content h3 {
+  margin-top: 20px;
+  font-size: 20px;
+}
+
+.intro {
+  font-size: 17px;
+  opacity: 0.9;
+}
+
+.cs-content ul {
+  margin-left: 20px;
+  margin-top: 10px;
+}
+
+.cs-content li {
+  margin-bottom: 6px;
+}
+
+.back-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255,255,255,0.25);
+  color: white;
+  padding: 9px 15px;
+  border-radius: 25px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.back-btn:hover {
+  background: rgba(255,255,255,0.35);
+}
+
+.cs-content a {
+  color: #aad6ff;
+}
+
+.cs-content a:hover {
+  text-decoration: underline;
+}
+/* ===== TOP COLLEGES SECTION ===== */
+
+.college-title{
+  margin-top:40px;
+  text-align:center;
+}
+
+/* grid layout */
+.college-grid{
+  margin-top:25px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:20px;
+}
+
+/* college card */
+.college-card{
+  background:rgba(255,255,255,0.08);
+  padding:18px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.15);
+  transition:0.3s;
+}
+
+/* hover effect */
+.college-card:hover{
+  transform:translateY(-5px);
+  background:rgba(255,255,255,0.15);
+}
+
+/* card title */
+.college-card h3{
+  margin-bottom:6px;
+  font-size:18px;
+}
+
+/* card text */
+.college-card p{
+  font-size:14px;
+  opacity:0.9;
+}
+
+/* button */
+.college-card a{
+  display:inline-block;
+  margin-top:10px;
+  padding:6px 14px;
+  border-radius:20px;
+  background:#2563eb;
+  color:white;
+  text-decoration:none;
+  font-size:14px;
+}
+
+.college-card a:hover{
+  background:#1e4ed8;
+}

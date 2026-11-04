@@ -1,0 +1,93 @@
+.arts-wrapper {
+  background: url("./art.jpg") center/cover no-repeat;
+   background-size: cover;
+
+  min-height: 100vh;
+  padding: 60px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.back-btn {
+  
+    position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.2);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 25px;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+}
+
+.back-btn:hover {
+  background: rgba(255,255,255,0.35);
+}
+
+.arts-content {
+  width: 90%;
+  max-width: 900px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  padding: 35px 40px;
+  border-radius: 12px;
+  line-height: 1.6;
+}
+
+.arts-content h1 {
+  font-size: 38px;
+  margin-bottom: 20px;
+}
+
+.arts-content h2 {
+  margin-top: 25px;
+}
+
+.arts-content h3 {
+  margin-top: 18px;
+}
+
+.arts-content ul {
+  padding-left: 20px;
+  margin-top: 8px;
+}
+
+.intro {
+  font-size: 17px;
+  opacity: 0.95;
+  margin-bottom: 20px;
+}
+/* ===== COLLEGE SECTION ===== */
+
+.college-title {
+  margin-top: 40px;
+  text-align: center;
+}
+
+/* grid layout */
+.college-grid {
+  margin-top: 25px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+/* college card */
+.college-card {
+  background: rgba(255,255,255,0.08);
+  padding: 18px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.15);
+  transition: 0.3s;
+}
+
+/* hover effect */
+.college-card:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.25);
+}

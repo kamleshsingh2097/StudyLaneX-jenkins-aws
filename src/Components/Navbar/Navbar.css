@@ -1,0 +1,295 @@
+/* Navbar full container */
+.navbar {
+  position: fixed;         /* always stays at top */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 65px;            /* bigger navbar */
+  padding: 0 40px;         /* spacing left-right */
+  background: rgba(0, 0, 0, 0.45);  /* transparent black */
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 999;
+}
+
+/* Logo bigger */
+.logo {
+  width: 210px;         /* increase size */
+  filter: brightness(0) invert(1);  /* white color effect */
+}
+
+/* Center menu */
+.nav-links {
+  display: flex;
+  list-style: none;
+  gap: 32px;              /* spacing between items */
+  font-size: 18px;
+  margin: 0;
+  padding: 0;
+}
+/* LEFT */
+.nav-left {
+  display:flex;
+  align-items:center;
+}
+
+/* Logo bigger */
+.logo {
+  width: 210px;
+  filter: brightness(0) invert(1);
+}
+
+@media (max-width: 680px) {
+  .logo { width: 120px; }
+}
+
+/* NAV LINKS (now inside right group) */
+.nav-links {
+  flex: 0 0 auto;
+  display: flex;
+  list-style: none;
+  gap: 26px;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  transform: translateX(12px); /* small nudge to the right */
+  transition: transform .14s ease;
+} 
+
+/* HAMBURGER (mobile) */
+.hamburger {
+  display: none;
+  background: transparent;
+  border: none;
+  width: 42px;
+  height: 36px;
+  padding: 6px;
+  gap: 4px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: #fff;
+  border-radius: 2px;
+}
+
+/* MOBILE MENU */
+.mobile-menu-overlay { display: none; }
+.mobile-menu { display: none; }
+
+@media (max-width: 680px) {
+  /* hide desktop inline nav on small screens */
+  .nav-links, .auth-group, .btn.contact { display: none !important; }
+
+  /* show hamburger and pin it to the right corner */
+  .hamburger {
+    display: inline-flex;
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1500;
+  }
+
+  /* remove extra right padding now that contact is hidden */
+  .nav-right { padding-right: 0; }
+
+  .mobile-menu-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 2000; /* above contact button */
+    background: rgba(0,0,0,0.4);
+  }
+
+  .mobile-menu {
+    display: flex;
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 70px; /* below navbar */
+    background: #0b1220;
+    color: #fff;
+    padding: 18px;
+    border-radius: 10px;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+
+  .mobile-menu .mobile-close {
+    align-self: flex-end;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+  }
+
+  .mobile-menu ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px }
+  .mobile-menu li { padding: 10px 6px; cursor: pointer; font-weight: 600 }
+
+  .mobile-actions { display: flex; gap: 10px; flex-direction: column; }
+  .mobile-actions .auth-btn, .mobile-actions .btn { width: 100%; }
+}
+.nav-links li {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.nav-links li:hover {
+  opacity: 0.75;
+}
+
+/* RIGHT (now contains links + auth) */
+.nav-right {
+  flex: 1 1 auto; /* allow it to take remaining space and move items to the right */
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-right: 140px; /* reserve space for absolutely positioned contact */
+}
+
+/* push the Contact button fully to the viewport right edge */
+.nav-right .btn.contact {
+  margin-left: 0; /* no auto margin since we'll absolutely position */
+  margin-right: 0;
+  position: absolute; /* position relative to .navbar (fixed) */
+  right: 16px; /* distance from viewport edge */
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+}
+
+/* group for auth/login buttons so they can be pushed right */
+.auth-group {
+  margin-left: auto;     /* push auth buttons to the right side of .nav-right */
+  margin-right: 26px;   /* set gap before contact equal to .nav-links gap */
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 680px) {
+  .auth-group { margin-right: 12px; gap: 8px }
+}
+
+/* ensure nav-links gap reduces on small screens to match auth spacing */
+@media (max-width: 680px) {
+  .nav-links { gap: 12px }
+}
+
+/* override modal auth button styles so navbar auth buttons stay inline */
+.nav-right .auth-group .auth-btn {
+  width: auto;              /* allow them to sit side-by-side */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  padding: 8px 14px;
+}
+
+/* responsive: reduce reserved space and right offset on smaller screens */
+@media (max-width: 980px) {
+  .nav-right { padding-right: 110px; }
+  .nav-right .btn.contact { right: 12px; }
+}
+
+@media (max-width: 680px) {
+  .nav-right { padding-right: 80px; gap: 10px; }
+  .nav-right .btn.contact { right: 10px; }
+}
+/* If you want it absolutely flush to the viewport edge, uncomment the rule below */
+/* .nav-right .btn.contact { position: relative; right: -24px; } */
+
+.auth-btn {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.auth-outline {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+.primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn {
+  background: #fff;
+  color: #000;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap; /* avoid wrapping like "Contact\nus" */
+  min-width: 110px; /* ensure button stays wide enough */
+}
+
+/* --- Mobile hamburger & menu --- */
+.hamburger {
+  display: none;
+  background: transparent;
+  border: none;
+  width: 42px;
+  height: 36px;
+  padding: 6px;
+  gap: 4px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+.hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: #fff;
+  border-radius: 2px;
+}
+
+/* Mobile menu overlay (hidden by default) */
+.mobile-menu-overlay { display: none }
+.mobile-menu { display: none }
+
+@media (max-width: 680px) {
+  /* hide desktop inline nav on small screens */
+  .nav-links { display: none !important }
+  .auth-group { display: none }
+  .btn.contact { display: none }
+
+  /* show hamburger */
+  .hamburger { display: inline-flex }
+
+  /* show mobile menu when toggled (overlay rules used by JS)
+     the overlay & menu classes are toggled in JSX; styles here are for appearance */
+  .mobile-menu-overlay { display: block; position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.45); }
+  .mobile-menu { display: flex; position: absolute; left: 12px; right: 12px; top: 70px; background: rgba(11,18,32,0.98); color: #fff; padding: 18px; border-radius: 10px; flex-direction: column; gap: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+  .mobile-menu .mobile-close { align-self: flex-end; background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer; }
+  .mobile-menu ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px }
+  .mobile-menu li { padding: 10px 6px; cursor: pointer; font-weight: 600 }
+  .mobile-actions { display: flex; gap: 10px; flex-direction: column; }
+  .mobile-actions .auth-btn, .mobile-actions .btn { width: 100%; }
+}
+
+
+
