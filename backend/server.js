@@ -8,16 +8,26 @@ const app = express();
 const contactRoutes = require("./routes/contactRoutes");
 const localOrigin = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}):30173$/;
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || localOrigin.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+app.use(cors((req, callback) => {
+  const origin = req.header("Origin");
+ 
+  // 1) no Origin header, or 2) local development
+  let allowed = !origin || localOrigin.test(origin);
+ 
+  // 3) same-origin: the page's host equals the host the request was sent to (the ALB address)
+  if (!allowed) {
+    try {
+      allowed = new URL(origin).host === req.header("Host");
+    } catch {
+      allowed = false;
     }
-  },
-  methods: ["GET", "POST"],
-  credentials: true
+  }
+ 
+  callback(null, {
+    origin: allowed,
+    methods: ["GET", "POST"],
+    credentials: true,
+  });
 }));
 
 app.use(express.json()); // convert request body into json
